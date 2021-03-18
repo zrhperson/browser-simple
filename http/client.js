@@ -52,7 +52,7 @@ ${this.bodyText}`;
       connection.on("error", (err) => {
         reject(err)
         connection.end()
-        console.log("已从服务器断开");
+        console.log("server close");
       });
     });
   }
