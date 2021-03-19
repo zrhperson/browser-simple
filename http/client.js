@@ -48,9 +48,9 @@ ${this.bodyText}`;
       }
       connection.on("data", (data) => {
         parser.receive(data.toString());
-        console.log('parser=====>');
-        console.log(parser.statusLine);
-        console.log(parser.header);
+        if(parser.isFinished){
+          resolve(parser.response)
+        }
         connection.end();
       });
       connection.on("error", (err) => {
@@ -84,6 +84,18 @@ class ResponseParser {
     this.headerName = '';
     this.headerValue = '';
     this.bodyParser = null;
+  }
+  get isFinished() {
+    return this.bodyParser && this.bodyParser.isFinished
+  }
+  get response() {
+    this.statusLine.match(/HTTP\/1.1 ([0-9]+) ([\s\S]+)/);
+    return {
+      statusCode: RegExp.$1,
+      statusText: RegExp.$2,
+      headers: this.header,
+      body: this.bodyParser.content.join('')
+    }
   }
   receive(string) {
     for (let i = 0; i < string.length; i++) {
@@ -145,10 +157,50 @@ class ResponseParser {
 
 class TrunkedBodyParser {
   constructor() {
+    this.WAITING_LENGTH = 0;
+    this.WAITING_LENGTH_LINE_END = 1;
+    this.READING_TRUNK = 2;
+    this.WAITING_NEW_LINE = 3;
+    this.WAITING_NEW_LINE_END = 4;
 
+    this.length = 0;
+    this.content = [];
+    this.isFinished = false
+    
+    this.current = this.WAITING_LENGTH
   }
-  receive(str){
-    console.log(str);
+  receive(char){
+    if (this.current == this.WAITING_LENGTH) {
+      if (char == '\r') {
+        if(this.length === 0) {
+          this.isFinished = true
+        }else{
+          this.current = this.WAITING_LENGTH_LINE_END
+        }
+        
+      } else {
+        this.length *= 10;
+        this.length += char.charCodeAt(0) - '0'.charCodeAt(0);
+      }
+    } else if (this.current == this.WAITING_LENGTH_LINE_END) {
+      if (char == '\n') {
+        this.current = this.READING_TRUNK
+      }
+    } else if (this.current == this.READING_TRUNK) {
+        this.content.push(char);
+        this.length--
+        if(this.length === 0) {
+          this.current = this.WAITING_NEW_LINE
+        }
+    } else if (this.current == this.WAITING_NEW_LINE) {
+      if (char == '\r') {
+        this.current = this.WAITING_NEW_LINE_END
+      }
+    } else if (this.current == this.WAITING_NEW_LINE_END) {
+      if (char == '\n') {
+        this.current = this.WAITING_LENGTH
+      }
+    }
   }
 }
 
@@ -167,6 +219,7 @@ void async function () {
   });
 
   let response = await request.send();
+  console.log(response)
 }()
 
 // const client = net.createConnection({
