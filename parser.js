@@ -1,5 +1,7 @@
 const { addCssRules, computeCss } = require('./css')
 
+const layout = require('./layout')
+
 let currentToken = null;
 let currentAttribute = null;
 
@@ -28,6 +30,7 @@ function emit(token) {
     top.children.push(element);
 
     computeCss(element)
+    layout(element)
 
     if (!token.isSelfClosing) {
       stack.push(element);
@@ -43,6 +46,7 @@ function emit(token) {
       }
       stack.pop();
     }
+    layout(top)
     currentTextNode = null;
   } else if (token.type === "text") {
     if (currentTextNode === null) {
